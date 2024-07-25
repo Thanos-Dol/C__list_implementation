@@ -68,6 +68,7 @@ typedef struct {
 
 list* list_init();
 
+void list_destroy(list* a_list);
 
 unsigned short list_is_empty(list* a_list);
 
@@ -90,6 +91,12 @@ listnode_value* list_get_tail(list* a_list);
 double list_get_tail_uncoated(list* a_list);
 
 
+listnode_value** list_get_array_copy(list* a_list);
+
+
+double* list_get_array_copy_uncoated(list* a_list);
+
+
 /* ------ add -------- */
 
 
@@ -99,6 +106,9 @@ void list_append(list* a_list, listnode_value* a_listnode_value);
 void list_add_front(list* a_list, listnode_value* a_listnode_value);
 
 
+void list_add(list* a_list, listnode_value* a_listnode_value, long int pos);
+
+
 /* ------- remove -------- */
 
 
@@ -106,6 +116,12 @@ void list_remove_head(list* a_list);
 
 
 void list_remove_tail(list* a_list);
+
+
+void list_remove_at_pos(list* a_list, long int pos);
+
+
+void list_clear(list* a_list);
 
 
 /* ------- find --------*/
