@@ -7,29 +7,6 @@
 
 
 
-/* ----------------------- listnode_value ------------------------- */
-
-
-typedef struct {
-
-    double value;
-
-} listnode_value;
-
-
-
-
-listnode_value* listnode_value_init(double value);
-
-
-void listnode_value_destroy(listnode_value* a_listnode);
-
-
-void listnode_value_set_value(listnode_value* a_listnode_value, double value);
-
-
-short listnode_equal(listnode_value* v1, listnode_value* v2);
-
 /* ----------------------- listnode ------------------------- */
 
 
@@ -37,7 +14,7 @@ typedef struct listnode listnode;
 
 struct listnode {
 
-    listnode_value* value;
+    void* data;
     listnode* next;
     listnode* prev;
 
@@ -46,9 +23,9 @@ struct listnode {
 
 
 
-listnode* listnode_init(listnode_value* a_listnode_value, listnode* next, listnode* prev);
+listnode* listnode_init(void* data, listnode* next, listnode* prev);
 
-void listnode_destroy(listnode* a_listnode);
+void listnode_destroy(listnode* a_listnode, void (*data_destroyer)(void*));
 
 
 /* --------------------------- list ------------------------- */
@@ -61,14 +38,26 @@ typedef struct {
     unsigned long size;
     unsigned long long maxsize;
 
+    void* (*data_copy)(void* data);
+    void (*data_destroyer)(void* data);
+    int (*data_equal)(void* data1, void* data2);
+    void (*data_print)(void* data);
+
 } list;
 
 
 
 
-list* list_init();
+list* list_init(
+    void* (*data_copy_callback)(void*),
+    void (*data_destroyer_callback)(void*),
+    int (*data_equal_callback)(void* data1, void* data2),
+    void (*data_print)(void* data)
+);
+
 
 void list_destroy(list* a_list);
+
 
 unsigned short list_is_empty(list* a_list);
 
@@ -79,19 +68,13 @@ unsigned short list_is_empty(list* a_list);
 unsigned long list_get_size(list* a_list);
 
 
-listnode_value* list_get_head(list* a_list);
+void* list_get_head(list* a_list);
 
 
-double list_get_head_uncoated(list* a_list);
+void* list_get_tail(list* a_list);
 
 
-listnode_value* list_get_tail(list* a_list);
-
-
-double list_get_tail_uncoated(list* a_list);
-
-
-listnode_value** list_get_array_copy(list* a_list);
+void** list_get_array_copy(list* a_list);
 
 
 double* list_get_array_copy_uncoated(list* a_list);
@@ -100,13 +83,13 @@ double* list_get_array_copy_uncoated(list* a_list);
 /* ------ add -------- */
 
 
-void list_append(list* a_list, listnode_value* a_listnode_value);
+void list_append(list* a_list, void* data);
 
 
-void list_add_front(list* a_list, listnode_value* a_listnode_value);
+void list_add_front(list* a_list, void* data);
 
 
-void list_add(list* a_list, listnode_value* a_listnode_value, long int pos);
+void list_add(list* a_list, void* data, long int pos);
 
 
 /* ------- remove -------- */
@@ -128,7 +111,7 @@ void list_clear(list* a_list);
 
 
 /* returns first occurence of the element */
-long int list_find(list* a_list, listnode_value* a_listnode_value);
+long int list_find(list* a_list, void* data);
 
 
 /* ------ print ------- */

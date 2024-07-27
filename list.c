@@ -3,60 +3,32 @@
 #include "list.h"
 
 
+
 // ! TODO make sure there are no memory leaks!
 
 
-// TODO add documentation here
-/* ----------------------- listnode_value ------------------------- */
-
-
-
-
-listnode_value* listnode_value_init(double value) {
-
-    listnode_value* new_listnode_value;
-    new_listnode_value = (listnode_value*) malloc(sizeof(listnode_value));
-
-    new_listnode_value -> value = value;
-
-    return new_listnode_value;
-}
-
-
-void listnode_value_destroy(listnode_value* a_listnode_value) {
-    free(a_listnode_value);
-}
-
-
-void listnode_value_set_value(listnode_value* a_listnode_value, double value) {
-    a_listnode_value -> value = value;
-}
-
-
-short listnode_equal(listnode_value* v1, listnode_value* v2) {
-    return v1 -> value == v2 -> value;
-}
 
 /* ----------------------- listnode ------------------------- */
 
 
 
 
-listnode* listnode_init(listnode_value* a_listnode_value, listnode* next, listnode* prev) {
+listnode* listnode_init(void* data, listnode* next, listnode* prev) {
 
     listnode* new_node;
     new_node = (listnode*) malloc(sizeof(listnode));
 
-    new_node -> value = listnode_value_init(a_listnode_value -> value);
+    new_node -> data = data;
     new_node -> next = next;
     new_node -> prev = prev;
 
     return new_node;
 }
 
-void listnode_destroy(listnode* a_listnode)
+
+void listnode_destroy(listnode* a_listnode, void (*data_destroyer)(void*))
 {
-    free(a_listnode -> value);
+    data_destroyer(a_listnode -> data);
     free(a_listnode);
 }
 
@@ -66,7 +38,12 @@ void listnode_destroy(listnode* a_listnode)
 
 
 
-list* list_init() {
+list* list_init(
+    void* (*data_copy_callback)(void*),
+    void (*data_destroyer_callback)(void*),
+    int (*data_equal_callback)(void* data1, void* data2),
+    void (*data_print_callback)(void* data)
+) {
 
     list* new_list;
 
@@ -76,6 +53,11 @@ list* list_init() {
     new_list -> tail = NULL;
     new_list -> size = 0;
     new_list -> maxsize = DEFAULT_MAXISE;
+
+    new_list -> data_copy = data_copy_callback;
+    new_list -> data_destroyer = data_destroyer_callback;
+    new_list -> data_equal = data_equal_callback;
+    new_list -> data_print = data_print_callback;
 
     return new_list;
 }
@@ -91,7 +73,7 @@ void list_destroy(list* a_list) {
     while (curr)
     {
         tmp = curr -> next;
-        listnode_destroy(curr);
+        listnode_destroy(curr, a_list -> data_destroyer);
         curr = tmp;
     }
     free(a_list);
@@ -114,101 +96,53 @@ unsigned long list_get_size(list* a_list) {
 }
 
 
-listnode_value* list_get_head(list* a_list) {
+void* list_get_head(list* a_list) {
 
     if (!(a_list -> size))
     {
         return NULL;
     }
 
-    return a_list -> head -> value;
+    return a_list -> data_copy(a_list -> head -> data);
 }
 
 
-double list_get_head_uncoated(list* a_list) {
-
-    if (!(a_list -> size))
-    {
-        return 0.0;  // TODO : change this to maximum or minimum value of double (or sth that you will use to represent out of bounds value)
-    }
-    return a_list -> head -> value -> value;
-}
-
-
-listnode_value* list_get_tail(list* a_list) {
+void* list_get_tail(list* a_list) {
 
     if (!(a_list -> size))
     {
         return NULL;
     }
 
-    return a_list -> tail -> value;
+    return a_list -> data_copy(a_list -> tail -> data);
 }
 
 
-double list_get_tail_uncoated(list* a_list) {
-
-    if (!(a_list -> size))
-    {
-        return 0.0;  // TODO : change this to maximum or minimum value of double (or sth that you will use to represent out of bounds value)
-    }
-    return a_list -> tail -> value -> value;
-}
-
-
-listnode_value** list_get_array_copy(list* a_list) {
+void** list_get_array_copy(list* a_list) {
     
     if (!(a_list -> size))
     {
         return NULL;
     }
 
-    listnode_value** result;
-    result = (listnode_value**) calloc(a_list -> size, sizeof(listnode*));
+    void** result;
+    result = (void**) calloc(a_list -> size, sizeof(void*));
 
     int i;
     listnode* tmp;
-    listnode_value* listnode_value_copy;
+    void* listnode_data_copy;
 
     i = 0;
     tmp = a_list -> head;
 
     while (tmp)
     {
-        listnode_value_copy = (listnode_value*) malloc(sizeof(listnode_value));
-        listnode_value_set_value(listnode_value_copy, tmp -> value -> value);
-        result[i] = listnode_value_copy;
+        listnode_data_copy = a_list -> data_copy(tmp -> data);
+        result[i] = listnode_data_copy;
         i += 1;
         tmp = tmp -> next;
     }
 
-    return result;
-}
-
-
-double* list_get_array_copy_uncoated(list* a_list) {
-
-    if (!(a_list -> size))
-    {
-        return NULL;
-    }
-
-    double* result;
-    result = (double*) calloc(a_list -> size, sizeof(double));
-
-    int i;
-    listnode* tmp;
-
-    i = 0;
-    tmp = a_list -> head;
-
-    while (tmp)
-    {
-        result[i] = tmp -> value -> value;
-        i += 1;
-        tmp = tmp -> next;
-    }
-    
     return result;
 }
 
@@ -216,30 +150,29 @@ double* list_get_array_copy_uncoated(list* a_list) {
 /* ------ add -------- */
 
 
-void list_append(list* a_list, listnode_value* a_listnode_value) {
+void list_append(list* a_list, void* incoming_data) {
 
     if (a_list -> size == a_list -> maxsize)
     {
         return;
     }
 
-    listnode_value* value_copy = (listnode_value*) malloc(sizeof(listnode_value));
-    listnode_value_set_value(value_copy, a_listnode_value -> value);
+    void* incoming_data_copy = a_list -> data_copy(incoming_data);
     
-    listnode* tmp = (listnode*) malloc(sizeof(listnode));
-    tmp -> value = value_copy;
+    // ! TODO check if listnode_init first creates a copy of void* data and stores copy so creating another copy is redundant here
+    listnode* tmp = listnode_init(incoming_data_copy, NULL, NULL);
 
     if (!(a_list -> size))
     {
         a_list -> tail = tmp;
         a_list -> head = tmp;
-        tmp -> next = NULL;
-        tmp -> prev = NULL;
+        tmp -> next = NULL;  // redundant but helps with readability
+        tmp -> prev = NULL;  // redundant but helps with readability
     }
     else
     {
         tmp -> prev = a_list -> tail;
-        tmp -> next = NULL;
+        tmp -> next = NULL;  // redundant but helps with readability
         a_list -> tail -> next = tmp;
         a_list -> tail = tmp;
     }
@@ -250,29 +183,29 @@ void list_append(list* a_list, listnode_value* a_listnode_value) {
 }
 
 
-void list_add_front(list* a_list, listnode_value* a_listnode_value) {
+void list_add_front(list* a_list, void* incoming_data) {
     
     if (a_list -> size == a_list -> maxsize)
     {
         return;
     }
 
-    listnode_value* value_copy = (listnode_value*) malloc(sizeof(listnode_value));
-    listnode_value_set_value(value_copy, a_listnode_value -> value);
+    void* incoming_data_copy = a_list -> data_copy(incoming_data);
 
-    listnode* tmp = (listnode*) malloc(sizeof(listnode));
-    tmp -> value = value_copy;
+    // ! TODO check if listnode_init first creates a copy of void* data and stores copy so creating another copy is redundant here
+    listnode* tmp = listnode_init(incoming_data_copy, NULL, NULL);
 
     if (!(a_list -> size))
     {
         a_list -> head = tmp;
         a_list -> tail = tmp;
-        tmp -> next = NULL;
-        tmp -> prev = NULL;
+        tmp -> next = NULL;  // redundant but helps with readability
+        tmp -> prev = NULL;  // redundant but helps with readability
     }
     else
     {
         tmp -> next = a_list -> head;
+        tmp -> prev = NULL;  // redundant but helps with readability
         a_list -> head -> prev = tmp;
         a_list -> head = tmp;
     }
@@ -283,18 +216,14 @@ void list_add_front(list* a_list, listnode_value* a_listnode_value) {
 }
 
 
-void list_add(list* a_list, listnode_value* a_listnode_value, long int pos) {
+void list_add(list* a_list, void* incoming_data, long int pos) {
     
     if (a_list -> size == a_list -> maxsize)
     {
         return;
-    }
+    }    
 
-
-// printf("%d %d %d %d\n", pos, a_list -> size, -(a_list -> size), (pos) < (-(a_list -> size)));  //!!!!!!!!!!!! this the reason we love C!
-    
-
-    if ((pos < (-((long int)a_list -> size))) || (pos > ((long int)a_list -> size)))  //! due to unsigned long conversion to long int there will be precision errors
+    if ((pos < (-((long int)a_list -> size))) || (pos > ((long int)a_list -> size)))  // ! TODO due to unsigned long conversion to long int there will be precision errors, scecify boundaries for accepted values
     {
         return;
     }
@@ -304,10 +233,12 @@ void list_add(list* a_list, listnode_value* a_listnode_value, long int pos) {
         pos = pos + (long int)(a_list -> size);
     }
 
+    void* incoming_data_copy = a_list -> data_copy(incoming_data);
+
     if (!(a_list -> size))
     {
         listnode* new_node;
-        new_node = listnode_init(a_listnode_value, NULL, NULL);
+        new_node = listnode_init(incoming_data_copy, NULL, NULL);
 
         a_list -> head = new_node;
         a_list -> tail = new_node;
@@ -319,7 +250,7 @@ void list_add(list* a_list, listnode_value* a_listnode_value, long int pos) {
     if (!(pos))
     {
         listnode* new_node;
-        new_node = listnode_init(a_listnode_value, a_list -> head, NULL);
+        new_node = listnode_init(incoming_data_copy, a_list -> head, NULL);
 
         new_node -> next -> prev = new_node;
 
@@ -332,7 +263,7 @@ void list_add(list* a_list, listnode_value* a_listnode_value, long int pos) {
     if (pos == a_list -> size)
     {
         listnode* new_node;
-        new_node = listnode_init(a_listnode_value, NULL, a_list -> tail);
+        new_node = listnode_init(incoming_data_copy, NULL, a_list -> tail);
 
         new_node -> prev -> next = new_node;
 
@@ -354,7 +285,7 @@ void list_add(list* a_list, listnode_value* a_listnode_value, long int pos) {
         }
 
         listnode* new_node;
-        new_node = listnode_init(a_listnode_value, tmp -> next, tmp);
+        new_node = listnode_init(incoming_data_copy, tmp -> next, tmp);
 
         tmp -> next = new_node;
         new_node -> next -> prev = new_node;
@@ -371,7 +302,7 @@ void list_add(list* a_list, listnode_value* a_listnode_value, long int pos) {
         }
 
         listnode* new_node;
-        new_node = listnode_init(a_listnode_value, tmp, tmp -> prev);
+        new_node = listnode_init(incoming_data_copy, tmp, tmp -> prev);
 
         tmp -> prev = new_node;
         new_node -> prev -> next = new_node;
@@ -406,7 +337,7 @@ void list_remove_head(list* a_list) {
         a_list -> tail = NULL;
     }
 
-    listnode_destroy(tmp);
+    listnode_destroy(tmp, a_list -> data_destroyer);
 
     a_list -> size -= 1;
 }
@@ -433,7 +364,7 @@ void list_remove_tail(list* a_list) {
         a_list -> head = NULL;   
     }
 
-    listnode_destroy(tmp);
+    listnode_destroy(tmp, a_list -> data_destroyer);
 
     a_list -> size -= 1;
 }
@@ -458,7 +389,7 @@ void list_remove_at_pos(list* a_list, long int pos) {
 
     if (a_list -> size == 1)
     {
-        listnode_destroy(a_list -> head);
+        listnode_destroy(a_list -> head, a_list -> data_destroyer);
         a_list -> head = NULL;
         a_list -> tail = NULL;
         a_list -> size = 0;
@@ -474,7 +405,7 @@ void list_remove_at_pos(list* a_list, long int pos) {
 
         tmp -> next -> prev = NULL;
 
-        listnode_destroy(tmp);
+        listnode_destroy(tmp, a_list -> data_destroyer);
 
         a_list -> size -= 1;
 
@@ -490,7 +421,7 @@ void list_remove_at_pos(list* a_list, long int pos) {
 
         tmp -> prev -> next = NULL;
 
-        listnode_destroy(tmp);
+        listnode_destroy(tmp, a_list -> data_destroyer);
 
         a_list -> size -= 1;
 
@@ -515,7 +446,7 @@ void list_remove_at_pos(list* a_list, long int pos) {
         tmp -> next = listnode_to_remove -> next;
         listnode_to_remove -> next -> prev = tmp;
 
-        listnode_destroy(listnode_to_remove);
+        listnode_destroy(listnode_to_remove, a_list -> data_destroyer);
     }
     else 
     {
@@ -535,15 +466,15 @@ void list_remove_at_pos(list* a_list, long int pos) {
         tmp -> prev = listnode_to_remove -> prev;
         listnode_to_remove -> prev -> next = tmp;
 
-        listnode_destroy(listnode_to_remove);
+        listnode_destroy(listnode_to_remove, a_list -> data_destroyer);
     }
 
     a_list -> size -= 1;
 }
 
 
-void list_clear(list* a_list) {
-    
+void list_clear(list* a_list)
+{
     if (!(a_list -> size))
     {
         return;
@@ -558,7 +489,7 @@ void list_clear(list* a_list) {
     while (tmp_1)
     {
         tmp_2 = tmp_1 -> next;
-        listnode_destroy(tmp_1);
+        listnode_destroy(tmp_1, a_list -> data_destroyer);
         tmp_1 = tmp_2;
     }
 
@@ -573,7 +504,7 @@ void list_clear(list* a_list) {
 
 
 /* returns first occurence of the element */
-long int list_find(list* a_list, listnode_value* a_listnode_value) {
+long int list_find(list* a_list, void* given_data) {
 
     if (!(a_list -> size))
     {
@@ -588,7 +519,7 @@ long int list_find(list* a_list, listnode_value* a_listnode_value) {
 
     while (tmp)
     {
-        if (listnode_equal(tmp -> value, a_listnode_value)) 
+        if (a_list -> data_equal(tmp -> data, given_data)) 
         {
             return i;
         }
@@ -610,7 +541,7 @@ void list_print(list* a_list) {
     tmp = a_list -> head;
     while (tmp)
     {
-        printf("%lf ", tmp -> value -> value);
+        a_list -> data_print(tmp -> data);
         tmp = tmp -> next;
     }
     printf("\n");
