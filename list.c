@@ -33,16 +33,37 @@ void listnode_destroy(listnode* a_listnode, void (*data_destroyer)(void*))
 }
 
 
+/* ------------------------ listmaker  ---------------------- */
+
+
+listmaker* listmaker_init(
+    void* (*data_copy)(void* data),
+    void (*data_destroyer)(void* data),
+    int (*data_equal)(void* data1, void* data2),
+    void (*data_print)(void* data)
+) {
+
+    listmaker* tmp = (listmaker*) malloc(sizeof(listmaker));
+
+    tmp -> data_copy = data_copy;
+    tmp -> data_destroyer = data_destroyer;
+    tmp -> data_equal = data_equal;
+    tmp -> data_print = data_print;
+
+    return tmp;
+}
+
+
 /* --------------------------- list ------------------------- */
 
 
 
 
 list* list_init(
-    void* (*data_copy_callback)(void*),
-    void (*data_destroyer_callback)(void*),
-    int (*data_equal_callback)(void* data1, void* data2),
-    void (*data_print_callback)(void* data)
+    void* (*data_copy)(void* data),
+    void (*data_destroyer)(void* data),
+    int (*data_equal)(void* data1, void* data2),
+    void (*data_print)(void* data)
 ) {
 
     list* new_list;
@@ -54,10 +75,30 @@ list* list_init(
     new_list -> size = 0;
     new_list -> maxsize = DEFAULT_MAXISE;
 
-    new_list -> data_copy = data_copy_callback;
-    new_list -> data_destroyer = data_destroyer_callback;
-    new_list -> data_equal = data_equal_callback;
-    new_list -> data_print = data_print_callback;
+    new_list -> data_copy = data_copy;
+    new_list -> data_destroyer = data_destroyer;
+    new_list -> data_equal = data_equal;
+    new_list -> data_print = data_print;
+
+    return new_list;
+}
+
+
+list* list_init_listmaker(listmaker* a_listmaker) {
+
+    list* new_list;
+
+    new_list = (list*) malloc(sizeof(list));
+
+    new_list -> head = NULL;
+    new_list -> tail = NULL;
+    new_list -> size = 0;
+    new_list -> maxsize = DEFAULT_MAXISE;
+
+    new_list -> data_copy = a_listmaker -> data_copy;
+    new_list -> data_destroyer = a_listmaker -> data_destroyer;
+    new_list -> data_equal = a_listmaker -> data_equal;
+    new_list -> data_print = a_listmaker -> data_print;
 
     return new_list;
 }

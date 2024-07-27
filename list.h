@@ -28,6 +28,29 @@ listnode* listnode_init(void* data, listnode* next, listnode* prev);
 void listnode_destroy(listnode* a_listnode, void (*data_destroyer)(void*));
 
 
+/* ----------------------- listmaker ------------------------- */
+
+
+typedef struct {
+
+    void* (*data_copy)(void* data);
+    void (*data_destroyer)(void* data);
+    int (*data_equal)(void* data1, void* data2);
+    void (*data_print)(void* data);
+
+} listmaker;
+
+
+
+
+listmaker* listmaker_init(
+    void* (*data_copy)(void* data),
+    void (*data_destroyer)(void* data),
+    int (*data_equal)(void* data1, void* data2),
+    void (*data_print)(void* data)
+);
+
+
 /* --------------------------- list ------------------------- */
 
 
@@ -49,11 +72,14 @@ typedef struct {
 
 
 list* list_init(
-    void* (*data_copy_callback)(void*),
-    void (*data_destroyer_callback)(void*),
-    int (*data_equal_callback)(void* data1, void* data2),
+    void* (*data_copy)(void* data),
+    void (*data_destroyer)(void* data),
+    int (*data_equal)(void* data1, void* data2),
     void (*data_print)(void* data)
 );
+
+
+list* list_init_listmaker(listmaker* a_listmaker);
 
 
 void list_destroy(list* a_list);
